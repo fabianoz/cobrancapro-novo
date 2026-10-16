@@ -1,0 +1,17 @@
+[build]
+command = "npx next build"
+publish = ".next"
+
+[[plugins]]
+package = "@netlify/plugin-nextjs"
+
+# Scheduled Functions (Netlify Cron)
+# Gera cobranças todo dia às 07:00 BRT (10:00 UTC)
+[[crons]]
+  schedule = "0 10 * * *"
+  path = "/api/cron/generate-charges"
+
+# Verifica cobranças vencidas todo dia às 08:00 BRT (11:00 UTC)
+[[crons]]
+  schedule = "0 11 * * *"
+  path = "/api/cron/check-overdue"
