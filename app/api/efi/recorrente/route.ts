@@ -1,9 +1,14 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const runtime = 'nodejs'
+
 import { NextResponse } from 'next/server';
 import { criarRecorrencia, listarRecorrencias, consultarRecorrencia, encerrarRecorrencia } from '@/lib/efi/recorrente';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase/api';
 
 /** Criar recorrência de Pix Automático */
 export async function POST(request: Request) {
+    const supabaseAdmin = getSupabaseAdmin();
   try {
     const body = await request.json();
     const { valor, nome, cpf, email, periodicidade, dataInicio, customerId } = body;
@@ -44,6 +49,7 @@ export async function POST(request: Request) {
 
 /** Listar ou consultar recorrências */
 export async function GET(request: Request) {
+    const supabaseAdmin = getSupabaseAdmin();
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -68,6 +74,7 @@ export async function GET(request: Request) {
 
 /** Encerrar recorrência */
 export async function PUT(request: Request) {
+    const supabaseAdmin = getSupabaseAdmin();
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');

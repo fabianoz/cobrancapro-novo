@@ -1,5 +1,9 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const runtime = 'nodejs'
+
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase/api';
 import { invalidateConfig, invalidateToken } from '@/lib/efi/auth';
 
 /**
@@ -8,6 +12,7 @@ import { invalidateConfig, invalidateToken } from '@/lib/efi/auth';
  * existing credentials with empty/masked values.
  */
 export async function POST(request: Request) {
+    const supabaseAdmin = getSupabaseAdmin();
   try {
     const body = await request.json().catch(() => ({}));
 

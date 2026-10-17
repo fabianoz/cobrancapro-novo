@@ -1,5 +1,9 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const runtime = 'nodejs'
+
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase/api';
 import { sincronizarStatusCharge } from '@/lib/efi/helper';
 
 /**
@@ -12,6 +16,7 @@ import { sincronizarStatusCharge } from '@/lib/efi/helper';
  * 3. Marca como OVERDUE se ainda pendente
  */
 export async function GET(request: Request) {
+    const supabaseAdmin = getSupabaseAdmin();
   const authHeader = request.headers.get('authorization');
   const expectedToken = process.env.CRON_SECRET || 'cobrancapro-cron';
 

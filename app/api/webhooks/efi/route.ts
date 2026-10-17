@@ -1,5 +1,9 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const runtime = 'nodejs'
+
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase/api';
 import { sendWhatsApp } from '@/lib/whatsapp';
 import { cancelarBoleto } from '@/lib/efi/boleto';
 import { efiFetch } from '@/lib/efi/auth';
@@ -19,6 +23,7 @@ import type { Customer, Charge } from '@/lib/supabase';
 
 async function cancelBoleto(charge: Charge) {
   if (!charge.boleto_charge_id) return;
+  const supabaseAdmin = getSupabaseAdmin();
   try {
     await cancelarBoleto(charge.boleto_charge_id);
     await supabaseAdmin
@@ -43,6 +48,7 @@ async function cancelPix(txid: string) {
 
 async function markPaidAndNotify(charge: Charge, paymentMethod: string, valorPago?: number) {
   if (charge.status === 'PAID') return;
+  const supabaseAdmin = getSupabaseAdmin();
 
   await supabaseAdmin
     .from('charges')
@@ -71,6 +77,7 @@ async function markPaidAndNotify(charge: Charge, paymentMethod: string, valorPag
 }
 
 export async function POST(request: Request) {
+    const supabaseAdmin = getSupabaseAdmin();
   try {
     const body = await request.json();
     console.log('[EFI Webhook] Payload recebido:', JSON.stringify(body).slice(0, 500));

@@ -1,5 +1,9 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const runtime = 'nodejs'
+
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase/api';
 
 const EVO_URL = 'https://evolution-api-production-56f2.up.railway.app';
 const EVO_KEY = 'FABIANO123';
@@ -43,10 +47,12 @@ async function sendText(phone: string, text: string): Promise<void> {
 }
 
 export async function GET() {
+    const supabaseAdmin = getSupabaseAdmin();
   return NextResponse.json({ status: 'ok', webhook: 'evolution-suporte ativo' });
 }
 
 export async function POST(request: Request) {
+    const supabaseAdmin = getSupabaseAdmin();
   try {
     const body = await request.json() as Record<string, unknown>;
     console.log('[Webhook] Body recebido:', JSON.stringify(body).slice(0, 500));

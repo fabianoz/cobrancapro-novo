@@ -1,8 +1,13 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const runtime = 'nodejs'
+
 import { NextResponse } from 'next/server';
 import { handleInterWebhook } from '@/lib/inter/client';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase/api';
 
 export async function POST(request: Request) {
+    const supabaseAdmin = getSupabaseAdmin();
   try {
     const payload = await request.json();
     console.log('[Webhook Inter] Payload recebido:', JSON.stringify(payload).slice(0, 500));

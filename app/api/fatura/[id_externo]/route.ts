@@ -1,10 +1,15 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const runtime = 'nodejs'
+
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase/api';
 
 export async function GET(
   _request: Request,
   { params }: { params: { id_externo: string } }
 ) {
+    const supabaseAdmin = getSupabaseAdmin();
   const externalId = params.id_externo;
   if (!externalId) {
     return NextResponse.json({ error: 'ID não fornecido' }, { status: 400 });

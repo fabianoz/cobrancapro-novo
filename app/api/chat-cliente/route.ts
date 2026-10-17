@@ -1,11 +1,16 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const runtime = 'nodejs'
+
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase/api';
 
 function errorResponse(message = 'Não foi possível concluir a operação.') {
   return NextResponse.json({ error: message }, { status: 400 });
 }
 
 export async function GET(request: Request) {
+    const supabaseAdmin = getSupabaseAdmin();
   const { searchParams } = new URL(request.url);
   const view = searchParams.get('view') || 'queue';
   const search = searchParams.get('search')?.trim() || '';
@@ -25,6 +30,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+    const supabaseAdmin = getSupabaseAdmin();
   try {
     const body = await request.json();
     const { action, conversationId, userId, team } = body as {

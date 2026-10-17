@@ -1,14 +1,17 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const runtime = 'nodejs'
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { SYSTEM_MODULES, type UserRole } from '@/lib/auth';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
-
 function getAuthedClient(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '');
   if (!token) return null;
-  return createClient(supabaseUrl, supabaseAnonKey, {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+  return createClient(url, anonKey, {
     global: { headers: { Authorization: `Bearer ${token}` } },
     auth: { autoRefreshToken: false, persistSession: false },
   });
@@ -53,7 +56,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Preencha nome, email, senha (mínimo 6 caracteres) e cargo corretamente.' }, { status: 400 });
     }
 
-    // Step 1: Create auth user via signUp
     const { data: signUpData, error: signUpError } = await admin.client.auth.signUp({ email, password });
     if (signUpError || !signUpData.user) {
       return NextResponse.json({ error: signUpError?.message || 'Não foi possível criar o usuário.' }, { status: 400 });
@@ -61,7 +63,6 @@ export async function POST(request: NextRequest) {
 
     const userId = signUpData.user.id;
 
-    // Step 2: Create profile + permissions via database function (using admin's session)
     const permissions = (body.permissions || []).filter(
       (p: { modulo?: string }) => p.modulo && SYSTEM_MODULES.includes(p.modulo as (typeof SYSTEM_MODULES)[number]),
     );

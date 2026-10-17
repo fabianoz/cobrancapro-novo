@@ -1,3 +1,7 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const runtime = 'nodejs'
+
 import { NextResponse } from 'next/server';
 import { generateCharges } from '@/lib/recurrence';
 import { flushNotificationQueue } from '@/lib/notifications';

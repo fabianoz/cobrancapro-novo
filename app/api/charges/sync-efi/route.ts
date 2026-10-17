@@ -1,5 +1,9 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const runtime = 'nodejs'
+
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase/api';
 import { consultarPix } from '@/lib/efi/pix';
 import { consultarBoleto } from '@/lib/efi/boleto';
 import { getAsaasCharge } from '@/lib/asaas/client';
@@ -13,6 +17,7 @@ import { getAsaasCharge } from '@/lib/asaas/client';
  * - Se tem boleto_charge_id, consulta boleto (GET /v1/charge/{id}) — se paid/settled marca PAGO
  */
 export async function POST() {
+    const supabaseAdmin = getSupabaseAdmin();
   try {
     const { data: pendingCharges } = await supabaseAdmin
       .from('charges')

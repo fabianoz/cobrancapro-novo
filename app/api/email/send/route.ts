@@ -1,10 +1,15 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const runtime = 'nodejs'
+
 import { NextResponse } from 'next/server';
 import { sendEmail, buildEmailHtml } from '@/lib/notifications';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase/api';
 import { formatCurrency, formatDate } from '@/lib/format';
 import type { Customer, Charge } from '@/lib/supabase';
 
 export async function POST(request: Request) {
+    const supabaseAdmin = getSupabaseAdmin();
   try {
     const { to, subject, chargeId, message } = await request.json();
 

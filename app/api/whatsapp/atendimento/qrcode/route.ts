@@ -1,5 +1,9 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const runtime = 'nodejs'
+
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase/api';
 
 const EVO_URL = 'https://evolution-api-production-56f2.up.railway.app';
 const EVO_KEY = 'FABIANO123';
@@ -23,6 +27,7 @@ async function registerWebhook(instance: string, webhookUrl: string): Promise<vo
 }
 
 async function getInstanceName(): Promise<string> {
+  const supabaseAdmin = getSupabaseAdmin();
   const { data } = await supabaseAdmin
     .from('settings')
     .select('evolution_instance_atendimento')
@@ -45,6 +50,7 @@ async function ensureInstance(instance: string): Promise<boolean> {
 }
 
 export async function GET(request: Request) {
+    const supabaseAdmin = getSupabaseAdmin();
   const instance = await getInstanceName();
   await ensureInstance(instance);
 

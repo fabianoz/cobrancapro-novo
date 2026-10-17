@@ -1,9 +1,14 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const runtime = 'nodejs'
+
 import { NextResponse } from 'next/server';
 import { authenticate, loadEfiConfig, invalidateConfig, invalidateToken } from '@/lib/efi/auth';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase/api';
 
 /** Testa a conexão com a API Efí Bank */
 export async function POST(request: Request) {
+    const supabaseAdmin = getSupabaseAdmin();
   try {
     const body = await request.json().catch(() => ({}));
 

@@ -1,8 +1,13 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const runtime = 'nodejs'
+
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase/api';
 import { sendWhatsAppTextAtendimento } from '@/lib/whatsapp';
 
 export async function GET(request: Request) {
+    const supabaseAdmin = getSupabaseAdmin();
   const { searchParams } = new URL(request.url);
   const conversationId = searchParams.get('conversa_id');
   if (!conversationId) return NextResponse.json({ error: 'Conversa não encontrada.' }, { status: 400 });
@@ -17,6 +22,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+    const supabaseAdmin = getSupabaseAdmin();
   try {
     const body = await request.json();
     const conversationId = typeof body.conversationId === 'string' ? body.conversationId : '';

@@ -1,6 +1,10 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const runtime = 'nodejs'
+
 import { NextResponse } from 'next/server';
 import { criarBoleto, consultarBoleto, cancelarBoleto, baixarPdfBoleto } from '@/lib/efi/boleto';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase/api';
 import { sendNotification } from '@/lib/notifications';
 import type { Charge, Customer } from '@/lib/supabase';
 
@@ -14,6 +18,7 @@ function getPublicUrl(request: Request): string {
 
 /** Criar boleto/bolix */
 export async function POST(request: Request) {
+    const supabaseAdmin = getSupabaseAdmin();
   try {
     const body = await request.json();
     const { valor, nome, cpfCnpj, email, telefone, vencimento, customerId, mensagem } = body;
@@ -79,6 +84,7 @@ export async function POST(request: Request) {
 }
 
 export async function GET(request: Request) {
+    const supabaseAdmin = getSupabaseAdmin();
   try {
     const { searchParams } = new URL(request.url);
     const chargeId = searchParams.get('id');
@@ -93,6 +99,7 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
+    const supabaseAdmin = getSupabaseAdmin();
   try {
     const { searchParams } = new URL(request.url);
     const chargeId = searchParams.get('id');

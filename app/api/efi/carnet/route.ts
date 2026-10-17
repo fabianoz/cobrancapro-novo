@@ -1,9 +1,14 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const runtime = 'nodejs'
+
 import { NextResponse } from 'next/server';
 import { criarCarnet, cancelarCarnet } from '@/lib/efi/boleto';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase/api';
 
 /** Criar carnê */
 export async function POST(request: Request) {
+    const supabaseAdmin = getSupabaseAdmin();
   try {
     const body = await request.json();
     const { valor, nome, cpfCnpj, email, telefone, vencimento, parcelas, customerId } = body;
@@ -50,6 +55,7 @@ export async function POST(request: Request) {
 
 /** Cancelar carnê */
 export async function PUT(request: Request) {
+    const supabaseAdmin = getSupabaseAdmin();
   try {
     const { searchParams } = new URL(request.url);
     const carnetId = searchParams.get('id');

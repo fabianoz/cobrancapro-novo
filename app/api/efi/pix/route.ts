@@ -1,6 +1,10 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const runtime = 'nodejs'
+
 import { NextResponse } from 'next/server';
 import { criarPixImediato, consultarPix, listarPixRecebidos } from '@/lib/efi/pix';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase/api';
 import { sendNotification } from '@/lib/notifications';
 import type { Charge, Customer } from '@/lib/supabase';
 
@@ -14,6 +18,7 @@ function getPublicUrl(request: Request): string {
 
 /** Criar Pix imediato ou consultar/listar */
 export async function POST(request: Request) {
+    const supabaseAdmin = getSupabaseAdmin();
   try {
     const body = await request.json();
     const { valor, nome, cpfCnpj, mensagem, customerId } = body;
@@ -69,6 +74,7 @@ export async function POST(request: Request) {
 }
 
 export async function GET(request: Request) {
+    const supabaseAdmin = getSupabaseAdmin();
   try {
     const { searchParams } = new URL(request.url);
     const txid = searchParams.get('txid');

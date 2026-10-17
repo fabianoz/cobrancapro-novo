@@ -1,10 +1,15 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const runtime = 'nodejs'
+
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase/api';
 
 const EVO_URL = 'https://evolution-api-production-56f2.up.railway.app';
 const EVO_KEY = 'FABIANO123';
 
 async function getInstanceName(): Promise<string> {
+  const supabaseAdmin = getSupabaseAdmin();
   const { data } = await supabaseAdmin
     .from('settings')
     .select('evolution_instance_atendimento')
@@ -14,6 +19,7 @@ async function getInstanceName(): Promise<string> {
 }
 
 export async function POST() {
+    const supabaseAdmin = getSupabaseAdmin();
   const instance = await getInstanceName();
   try {
     const response = await fetch(`${EVO_URL}/instance/logout/${instance}`, {
@@ -33,5 +39,6 @@ export async function POST() {
 }
 
 export async function DELETE() {
+    const supabaseAdmin = getSupabaseAdmin();
   return POST();
 }
