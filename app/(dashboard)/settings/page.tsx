@@ -570,7 +570,7 @@ export default function SettingsPage() {
       </div>
 
       <Card className="p-6 border-border/60">
-        <Accordion type="single" collapsible defaultValue="gerais" className="w-full">
+        <Accordion type="single" collapsible className="w-full">
           {/* 1. Configurações Gerais — Dados do Emitente */}
           <AccordionItem value="gerais">
             <AccordionTrigger className="text-base">
