@@ -38,6 +38,7 @@ import {
   Search,
   MessageCircle,
   Landmark,
+  Wallet,
   Eye,
   EyeOff,
 } from 'lucide-react';
@@ -124,6 +125,7 @@ export default function SettingsPage() {
   const [testingAsaas, setTestingAsaas] = useState(false);
   const [asaasTestResult, setAsaasTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [cnpjLoading, setCnpjLoading] = useState(false);
+  const [bankTab, setBankTab] = useState<'EFI' | 'INTER' | 'ASAAS'>('EFI');
 
   useEffect(() => {
     loadSettings();
@@ -144,6 +146,7 @@ export default function SettingsPage() {
         template_lembrete_d7_pos: data.template_lembrete_d7_pos || '',
         template_pago: data.template_pago || '',
       });
+      setBankTab((data.billing_provider as 'EFI' | 'INTER' | 'ASAAS') || 'EFI');
       setIssuer({
         issuer_name: data.issuer_name || '',
         issuer_trade_name: data.issuer_trade_name || '',
@@ -734,46 +737,107 @@ export default function SettingsPage() {
             </AccordionContent>
           </AccordionItem>
 
-          {/* 4. Configurações Efí / Financeiro */}
-          <AccordionItem value="efi">
+          {/* 4. Boletos & Pagamentos */}
+          <AccordionItem value="pagamentos">
             <AccordionTrigger className="text-base">
               <span className="flex items-center gap-2">
-                <CreditCard className="w-5 h-5 text-primary" />
-                Configurações Efí / Financeiro
-                {form.billing_provider === 'EFI' && (
-                  <Badge className="ml-2 bg-emerald-100 text-emerald-700 border-emerald-200">Padrão</Badge>
-                )}
+                <Wallet className="w-5 h-5 text-primary" />
+                Boletos & Pagamentos
               </span>
             </AccordionTrigger>
             <AccordionContent>
-              <div className="space-y-5">
-                <div className={`rounded-xl border-2 p-4 transition-all ${
-                  form.billing_provider === 'EFI'
-                    ? 'border-emerald-300 bg-emerald-50/50'
-                    : 'border-border bg-card'
-                }`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <CreditCard className="w-5 h-5 text-emerald-600" />
-                      <span className="font-medium">Efí Bank (Gerencianet)</span>
-                      {form.billing_provider === 'EFI' && (
-                        <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">Banco Padrão</Badge>
-                      )}
-                    </div>
-                    {form.billing_provider !== 'EFI' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setForm({ ...form, billing_provider: 'EFI' })}
-                      >
-                        Definir como Padrão
-                      </Button>
+              <p className="text-xs text-muted-foreground mb-4">
+                Escolha qual banco ou plataforma usar para emitir boletos e receber pagamentos. Configure todos e alterne quando quiser.
+              </p>
+
+              <div className="grid sm:grid-cols-3 gap-3 mb-6">
+                <div
+                  onClick={() => setBankTab('EFI')}
+                  className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${
+                    bankTab === 'EFI'
+                      ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                      : 'border-border bg-card hover:border-primary/30'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <CreditCard className="w-6 h-6 text-emerald-600" />
+                    {form.billing_provider === 'EFI' && (
+                      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">Padrão</Badge>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground mb-4">
-                    Este é o banco usado quando você clica em "Faturar" nas cobranças e assinaturas. A emissão manual na aba "Venda Avulsa" permite escolher o banco a cada cobrança.
-                  </p>
+                  <p className="font-medium text-sm">Efí Bank</p>
+                  <p className="text-xs text-muted-foreground mt-1">Gerencianet — Boleto + PIX</p>
+                  {form.billing_provider !== 'EFI' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-3 w-full"
+                      onClick={(e) => { e.stopPropagation(); setForm({ ...form, billing_provider: 'EFI' }); toast.success('Efí Bank definido como banco padrão'); }}
+                    >
+                      Usar este banco
+                    </Button>
+                  )}
                 </div>
+
+                <div
+                  onClick={() => setBankTab('INTER')}
+                  className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${
+                    bankTab === 'INTER'
+                      ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                      : 'border-border bg-card hover:border-primary/30'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <Landmark className="w-6 h-6 text-orange-600" />
+                    {form.billing_provider === 'INTER' && (
+                      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">Padrão</Badge>
+                    )}
+                  </div>
+                  <p className="font-medium text-sm">Banco Inter</p>
+                  <p className="text-xs text-muted-foreground mt-1">Boleto + PIX + DDA</p>
+                  {form.billing_provider !== 'INTER' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-3 w-full"
+                      onClick={(e) => { e.stopPropagation(); setForm({ ...form, billing_provider: 'INTER' }); toast.success('Banco Inter definido como banco padrão'); }}
+                    >
+                      Usar este banco
+                    </Button>
+                  )}
+                </div>
+
+                <div
+                  onClick={() => setBankTab('ASAAS')}
+                  className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${
+                    bankTab === 'ASAAS'
+                      ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                      : 'border-border bg-card hover:border-primary/30'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <CreditCard className="w-6 h-6 text-emerald-600" />
+                    {form.billing_provider === 'ASAAS' && (
+                      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">Padrão</Badge>
+                    )}
+                  </div>
+                  <p className="font-medium text-sm">Asaas</p>
+                  <p className="text-xs text-muted-foreground mt-1">Boleto + PIX + Recorrente</p>
+                  {form.billing_provider !== 'ASAAS' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-3 w-full"
+                      onClick={(e) => { e.stopPropagation(); setForm({ ...form, billing_provider: 'ASAAS' }); toast.success('Asaas definido como banco padrão'); }}
+                    >
+                      Usar este banco
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {bankTab === 'EFI' && (
+              <div className="space-y-5">
 
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-muted-foreground">Provedor de Pagamento — Efí Bank (Gerencianet)</p>
@@ -894,49 +958,10 @@ export default function SettingsPage() {
                   </div>
                 </div>
               </div>
-            </AccordionContent>
-          </AccordionItem>
+              )}
 
-          {/* 4b. Configurações Banco Inter */}
-          <AccordionItem value="inter">
-            <AccordionTrigger className="text-base">
-              <span className="flex items-center gap-2">
-                <Landmark className="w-5 h-5 text-primary" />
-                Configurações Banco Inter (Boleto + PIX + DDA)
-                {form.billing_provider === 'INTER' && (
-                  <Badge className="ml-2 bg-emerald-100 text-emerald-700 border-emerald-200">Padrão</Badge>
-                )}
-              </span>
-            </AccordionTrigger>
-            <AccordionContent>
+              {bankTab === 'INTER' && (
               <div className="space-y-5">
-                <div className={`rounded-xl border-2 p-4 transition-all ${
-                  form.billing_provider === 'INTER'
-                    ? 'border-emerald-300 bg-emerald-50/50'
-                    : 'border-border bg-card'
-                }`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Landmark className="w-5 h-5 text-orange-600" />
-                      <span className="font-medium">Banco Inter</span>
-                      {form.billing_provider === 'INTER' && (
-                        <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">Banco Padrão</Badge>
-                      )}
-                    </div>
-                    {form.billing_provider !== 'INTER' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setForm({ ...form, billing_provider: 'INTER' })}
-                      >
-                        Definir como Padrão
-                      </Button>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Quando definido como padrão, todas as cobranças geradas pelo "Faturar" usarão o Banco Inter. A emissão manual na aba "Venda Avulsa" permite escolher o banco a cada cobrança.
-                  </p>
-                </div>
 
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-muted-foreground">Segundo provedor de pagamentos — Banco Inter</p>
@@ -1069,31 +1094,10 @@ export default function SettingsPage() {
                   </div>
                 </div>
               </div>
-            </AccordionContent>
-          </AccordionItem>
+              )}
 
-          {/* 4c. Configurações Asaas */}
-          <AccordionItem value="asaas">
-            <AccordionTrigger className="text-base">
-              <span className="flex items-center gap-2">
-                <CreditCard className="w-5 h-5 text-primary" />
-                Configurações Asaas
-                {form.billing_provider === 'ASAAS' && <Badge className="ml-2 bg-emerald-100 text-emerald-700 border-emerald-200">Padrão</Badge>}
-              </span>
-            </AccordionTrigger>
-            <AccordionContent>
+              {bankTab === 'ASAAS' && (
               <div className="space-y-4">
-                <div className={`rounded-xl border-2 p-4 transition-all ${form.billing_provider === 'ASAAS' ? 'border-emerald-300 bg-emerald-50/50' : 'border-border bg-card'}`}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <CreditCard className="w-5 h-5 text-emerald-600" />
-                      <span className="font-medium">Asaas — boleto e cobrança recorrente</span>
-                      {form.billing_provider === 'ASAAS' && <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">Banco Padrão</Badge>}
-                    </div>
-                    {form.billing_provider !== 'ASAAS' && <Button size="sm" variant="outline" onClick={() => setForm({ ...form, billing_provider: 'ASAAS' })}>Definir como Padrão</Button>}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2">Plataforma de cobrança com boleto, PIX e cobrança recorrente sem mensalidade.</p>
-                </div>
 
                 <div className="space-y-4">
                   {/* anti-password-manager honeypot inputs */}
@@ -1183,6 +1187,8 @@ export default function SettingsPage() {
                   </div>
                 </div>
               </div>
+              )}
+
             </AccordionContent>
           </AccordionItem>
 
