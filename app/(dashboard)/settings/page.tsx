@@ -230,16 +230,18 @@ export default function SettingsPage() {
   }
 
   async function selectBillingProvider(provider: 'EFI' | 'INTER' | 'ASAAS') {
-    setForm((current) => ({ ...current, billing_provider: provider }));
-    setBankTab(provider);
-    const { error } = await supabase
-      .from('settings')
-      .update({ billing_provider: provider, updated_at: new Date().toISOString() })
-      .eq('id', 1);
-    if (error) {
-      toast.error('Não foi possível ativar este banco');
+    const response = await fetch('/api/settings/provider', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider }),
+    });
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      toast.error(result.error || 'Não foi possível ativar este banco');
       return;
     }
+    setForm((current) => ({ ...current, billing_provider: provider }));
+    setBankTab(provider);
     toast.success(`${provider === 'EFI' ? 'Efí Bank' : provider === 'INTER' ? 'Banco Inter' : 'Asaas'} ativado para novas cobranças`);
   }
 
@@ -766,7 +768,7 @@ export default function SettingsPage() {
 
               <div className="grid sm:grid-cols-3 gap-3 mb-6">
                 <div
-                  onClick={() => setBankTab('EFI')}
+                  onClick={() => void selectBillingProvider('EFI')}
                   className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${
                     bankTab === 'EFI'
                       ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
@@ -794,7 +796,7 @@ export default function SettingsPage() {
                 </div>
 
                 <div
-                  onClick={() => setBankTab('INTER')}
+                  onClick={() => void selectBillingProvider('INTER')}
                   className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${
                     bankTab === 'INTER'
                       ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
@@ -822,7 +824,7 @@ export default function SettingsPage() {
                 </div>
 
                 <div
-                  onClick={() => setBankTab('ASAAS')}
+                  onClick={() => void selectBillingProvider('ASAAS')}
                   className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${
                     bankTab === 'ASAAS'
                       ? 'border-primary bg-primary/5 ring-1 ring-primary/20'

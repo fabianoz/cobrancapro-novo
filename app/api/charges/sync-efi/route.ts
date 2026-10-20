@@ -7,6 +7,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/api';
 import { consultarPix } from '@/lib/efi/pix';
 import { consultarBoleto } from '@/lib/efi/boleto';
 import { getAsaasCharge } from '@/lib/asaas/client';
+import { getInterCharge } from '@/lib/inter/client';
 
 /**
  * POST /api/charges/sync-efi
@@ -63,6 +64,35 @@ export async function POST() {
             data_pagamento: new Date().toISOString(),
             payment_method: paymentMethod,
             valor_pago: valorPago,
+          }).eq('id', charge.id);
+          updated++;
+          results.push({ id: charge.id, txid: charge.txid, boleto_id: charge.boleto_charge_id, newStatus, method: paymentMethod });
+        }
+        continue;
+      }
+
+      if (charge.provider === 'INTER') {
+        try {
+          const interCharge = await getInterCharge(charge.external_id);
+          if (interCharge.situacao === 'PAGO' || interCharge.situacao === 'RECEBIDO') {
+            newStatus = 'PAID';
+            paymentMethod = 'INTER';
+            valorPago = Number(charge.value);
+          } else if (interCharge.situacao === 'CANCELADO' || interCharge.situacao === 'EXPIRADO') {
+            newStatus = 'CANCELLED';
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.log(`[Sync Inter] Erro ao consultar ${charge.external_id}: ${msg.slice(0, 120)}`);
+        }
+
+        if (newStatus !== 'PENDING' && newStatus !== charge.status) {
+          await supabaseAdmin.from('charges').update({
+            status: newStatus,
+            paid_at: newStatus === 'PAID' ? new Date().toISOString() : null,
+            data_pagamento: newStatus === 'PAID' ? new Date().toISOString() : null,
+            payment_method: newStatus === 'PAID' ? paymentMethod : null,
+            valor_pago: newStatus === 'PAID' ? valorPago : null,
           }).eq('id', charge.id);
           updated++;
           results.push({ id: charge.id, txid: charge.txid, boleto_id: charge.boleto_charge_id, newStatus, method: paymentMethod });

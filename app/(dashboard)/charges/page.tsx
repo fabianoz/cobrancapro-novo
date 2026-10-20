@@ -247,18 +247,23 @@ export default function ChargesPage() {
     setFaturando(null);
   }
 
-  async function handleTestBank() {
+  async function handleSyncBank() {
     setTestingBank(true);
     try {
-      const res = await fetch('/api/test-bank', { method: 'POST' });
+      const res = await fetch('/api/charges/sync-efi', { method: 'POST' });
       const data = await res.json();
       if (data.success) {
-        toast.success(`${data.provider}: ${data.message}`);
+        if (data.updated > 0) {
+          toast.success(`${data.updated} cobrança(s) atualizada(s)! ${data.checked} verificadas.`);
+        } else {
+          toast.info(`${data.checked} cobranças verificadas. Nenhuma mudança de status.`);
+        }
+        loadCharges();
       } else {
-        toast.error(`${data.provider || 'Banco'}: ${data.message || 'Falha no teste'}`);
+        toast.error(data.error || 'Erro ao sincronizar cobranças');
       }
     } catch {
-      toast.error('Erro de conexão ao testar banco');
+      toast.error('Erro de conexão ao sincronizar cobranças');
     }
     setTestingBank(false);
   }
@@ -444,11 +449,11 @@ export default function ChargesPage() {
         <Button
           size="sm"
           variant="outline"
-          onClick={handleTestBank}
+          onClick={handleSyncBank}
           disabled={testingBank}
         >
           {testingBank ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
-          {testingBank ? 'Testando...' : `Testar ${issuer?.billing_provider === 'ASAAS' ? 'Asaas' : issuer?.billing_provider === 'INTER' ? 'Inter' : 'Efí'}`}
+          {testingBank ? 'Sincronizando...' : 'Sincronizar'}
         </Button>
       </div>
 
