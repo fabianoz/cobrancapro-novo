@@ -15,6 +15,7 @@ import {
   ShoppingBag,
   Settings,
   MessageCircle,
+  BarChart3,
   UserCog,
   LogOut,
 } from 'lucide-react';
@@ -30,6 +31,7 @@ const navItems = [
   { href: '/charges', label: 'Cobranças', icon: Wallet, module: 'cobrancas' },
   { href: '/emitir', label: 'Venda Avulsa', icon: ShoppingBag, module: 'venda_avulsa' },
   { href: '/chat-cliente', label: 'Chat Cliente', icon: MessageCircle, module: 'atendimento' },
+  { href: '/relatorios', label: 'Relatórios', icon: BarChart3, module: 'relatorios' },
   { href: '/settings', label: 'Configurações', icon: Settings, module: 'configuracoes' },
   { href: '/settings/users', label: 'Usuários', icon: UserCog, module: 'configuracoes_usuarios' },
 ];
