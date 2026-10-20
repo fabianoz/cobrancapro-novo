@@ -229,6 +229,20 @@ export default function SettingsPage() {
     setLoading(false);
   }
 
+  async function selectBillingProvider(provider: 'EFI' | 'INTER' | 'ASAAS') {
+    setForm((current) => ({ ...current, billing_provider: provider }));
+    setBankTab(provider);
+    const { error } = await supabase
+      .from('settings')
+      .update({ billing_provider: provider, updated_at: new Date().toISOString() })
+      .eq('id', 1);
+    if (error) {
+      toast.error('Não foi possível ativar este banco');
+      return;
+    }
+    toast.success(`${provider === 'EFI' ? 'Efí Bank' : provider === 'INTER' ? 'Banco Inter' : 'Asaas'} ativado para novas cobranças`);
+  }
+
   async function handleSaveAll() {
     setSaving(true);
     const { error } = await supabase
@@ -772,7 +786,7 @@ export default function SettingsPage() {
                       size="sm"
                       variant="outline"
                       className="mt-3 w-full"
-                      onClick={(e) => { e.stopPropagation(); setForm({ ...form, billing_provider: 'EFI' }); toast.success('Efí Bank definido como banco padrão'); }}
+                      onClick={(e) => { e.stopPropagation(); void selectBillingProvider('EFI'); }}
                     >
                       Usar este banco
                     </Button>
@@ -800,7 +814,7 @@ export default function SettingsPage() {
                       size="sm"
                       variant="outline"
                       className="mt-3 w-full"
-                      onClick={(e) => { e.stopPropagation(); setForm({ ...form, billing_provider: 'INTER' }); toast.success('Banco Inter definido como banco padrão'); }}
+                      onClick={(e) => { e.stopPropagation(); void selectBillingProvider('INTER'); }}
                     >
                       Usar este banco
                     </Button>
@@ -828,7 +842,7 @@ export default function SettingsPage() {
                       size="sm"
                       variant="outline"
                       className="mt-3 w-full"
-                      onClick={(e) => { e.stopPropagation(); setForm({ ...form, billing_provider: 'ASAAS' }); toast.success('Asaas definido como banco padrão'); }}
+                      onClick={(e) => { e.stopPropagation(); void selectBillingProvider('ASAAS'); }}
                     >
                       Usar este banco
                     </Button>

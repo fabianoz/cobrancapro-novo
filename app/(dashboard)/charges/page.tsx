@@ -35,7 +35,6 @@ import {
   Link as LinkIcon,
   Zap,
   XCircle,
-  RefreshCw,
   ExternalLink,
   Trash2,
   DollarSign,
@@ -91,7 +90,6 @@ export default function ChargesPage() {
   const [sendChannel, setSendChannel] = useState<'whatsapp' | 'email' | 'both'>('both');
   const [sending, setSending] = useState(false);
   const [faturando, setFaturando] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState(false);
   const [businessHours, setBusinessHours] = useState<{ isBusinessHours: boolean; message: string }>({
     isBusinessHours: true,
     message: '',
@@ -263,27 +261,6 @@ export default function ChargesPage() {
       toast.error('Erro de conexão ao testar banco');
     }
     setTestingBank(false);
-  }
-
-  async function handleSyncEfi() {
-    setSyncing(true);
-    try {
-      const res = await fetch('/api/charges/sync-efi', { method: 'POST' });
-      const data = await res.json();
-      if (data.success) {
-        if (data.updated > 0) {
-          toast.success(`${data.updated} cobrança(s) atualizada(s)! ${data.checked} verificadas.`);
-        } else {
-          toast.info(`${data.checked} cobranças verificadas. Nenhuma mudança de status.`);
-        }
-        loadCharges();
-      } else {
-        toast.error(data.error || 'Erro ao sincronizar');
-      }
-    } catch {
-      toast.error('Erro de conexão');
-    }
-    setSyncing(false);
   }
 
   async function handleDeleteCharge() {
@@ -472,15 +449,6 @@ export default function ChargesPage() {
         >
           {testingBank ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
           {testingBank ? 'Testando...' : `Testar ${issuer?.billing_provider === 'ASAAS' ? 'Asaas' : issuer?.billing_provider === 'INTER' ? 'Inter' : 'Efí'}`}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleSyncEfi}
-          disabled={syncing}
-        >
-          {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-          {syncing ? 'Sincronizando...' : `Sincronizar com ${issuer?.billing_provider === 'ASAAS' ? 'Asaas' : issuer?.billing_provider === 'INTER' ? 'Banco Inter' : 'Efí'}`}
         </Button>
       </div>
 
