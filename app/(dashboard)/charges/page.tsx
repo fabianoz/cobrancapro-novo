@@ -105,6 +105,7 @@ export default function ChargesPage() {
   const [receiveForm, setReceiveForm] = useState({ valorPago: '', desconto: '', dataPagamento: '' });
   const [receiving, setReceiving] = useState(false);
   const [yearFilter, setYearFilter] = useState('ALL');
+  const [testingBank, setTestingBank] = useState(false);
 
   const loadCharges = useCallback(async () => {
     const { data } = await supabase
@@ -246,6 +247,22 @@ export default function ChargesPage() {
       toast.error('Erro de conexão');
     }
     setFaturando(null);
+  }
+
+  async function handleTestBank() {
+    setTestingBank(true);
+    try {
+      const res = await fetch('/api/test-bank', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`${data.provider}: ${data.message}`);
+      } else {
+        toast.error(`${data.provider || 'Banco'}: ${data.message || 'Falha no teste'}`);
+      }
+    } catch {
+      toast.error('Erro de conexão ao testar banco');
+    }
+    setTestingBank(false);
   }
 
   async function handleSyncEfi() {
@@ -446,6 +463,15 @@ export default function ChargesPage() {
         >
           <Zap className="w-4 h-4 mr-2" />
           Gerar Cobranças
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleTestBank}
+          disabled={testingBank}
+        >
+          {testingBank ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
+          {testingBank ? 'Testando...' : `Testar ${issuer?.billing_provider === 'ASAAS' ? 'Asaas' : issuer?.billing_provider === 'INTER' ? 'Inter' : 'Efí'}`}
         </Button>
         <Button
           size="sm"
