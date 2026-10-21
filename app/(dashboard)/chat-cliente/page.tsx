@@ -76,7 +76,7 @@ function phone(value: string) {
 }
 
 export default function ChatClientePage() {
-  const { user } = useAuth();
+  const { user, empresaId, isSuperAdmin } = useAuth();
   const [view, setView] = useState<View>('queue');
   const [team, setTeam] = useState<Team>('atendimento');
   const [search, setSearch] = useState('');
@@ -92,13 +92,14 @@ export default function ChatClientePage() {
     const params = new URLSearchParams({ view, search });
     if (view === 'mine') params.set('user_id', user?.id || '');
     if (view === 'team') params.set('team', team);
+    if (!isSuperAdmin && empresaId) params.set('empresa_id', empresaId);
     const response = await fetch(`/api/chat-cliente?${params}`);
     if (!response.ok) return;
     const data = await response.json() as Conversation[];
     setConversations(data);
     setSelected((current) => data.find((item) => item.id === current?.id) || data[0] || null);
     setLoading(false);
-  }, [search, team, user?.id, view]);
+  }, [search, team, user?.id, view, empresaId, isSuperAdmin]);
 
   const loadMessages = useCallback(async (conversationId: string) => {
     const response = await fetch(`/api/chat-cliente/mensagens?conversa_id=${conversationId}`);

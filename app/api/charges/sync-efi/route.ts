@@ -20,11 +20,15 @@ import { getInterCharge } from '@/lib/inter/client';
 export async function POST() {
     const supabaseAdmin = getSupabaseAdmin();
   try {
-    const { data: pendingCharges } = await supabaseAdmin
+    const { data: pendingCharges, error: chargesError } = await supabaseAdmin
       .from('charges')
       .select('id, external_id, txid, boleto_charge_id, status, value, provider')
       .eq('status', 'PENDING')
       .order('created_at', { ascending: false });
+
+    if (chargesError) {
+      return NextResponse.json({ success: false, error: 'Não foi possível carregar as cobranças do banco ativo' }, { status: 500 });
+    }
 
     if (!pendingCharges || pendingCharges.length === 0) {
       return NextResponse.json({ success: true, checked: 0, updated: 0, message: 'Nenhuma cobrança pendente' });

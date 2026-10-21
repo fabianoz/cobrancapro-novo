@@ -24,19 +24,25 @@ async function getAdmin(request: NextRequest) {
   if (!authData.user) return null;
   const { data: admin } = await client
     .from('usuarios_sistema')
-    .select('id, cargo, ativo')
+    .select('id, cargo, ativo, empresa_id')
     .eq('id', authData.user.id)
     .maybeSingle();
-  return admin?.ativo && admin.cargo === 'admin' ? { user: authData.user, client } : null;
+  if (!admin?.ativo) return null;
+  if (admin.cargo !== 'admin' && admin.cargo !== 'super_admin') return null;
+  return { user: authData.user, client, empresaId: admin.empresa_id, isSuperAdmin: admin.cargo === 'super_admin' };
 }
 
 export async function GET(request: NextRequest) {
   const admin = await getAdmin(request);
   if (!admin) return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
-  const { data, error } = await admin.client
+  let query = admin.client
     .from('usuarios_sistema')
     .select('*, permissoes_usuario(*)')
     .order('criado_em', { ascending: false });
+  if (!admin.isSuperAdmin && admin.empresaId) {
+    query = query.eq('empresa_id', admin.empresaId);
+  }
+  const { data, error } = await query;
   if (error) return NextResponse.json({ error: 'Não foi possível carregar os usuários.' }, { status: 500 });
   return NextResponse.json({ users: data || [] });
 }
@@ -79,6 +85,19 @@ export async function POST(request: NextRequest) {
 
     if (rpcError) {
       return NextResponse.json({ error: rpcError.message }, { status: 500 });
+    }
+
+    // Link new user to the same empresa as the admin (unless super_admin creating a global user)
+    if (!admin.isSuperAdmin && admin.empresaId) {
+      await admin.client
+        .from('usuarios_sistema')
+        .update({ empresa_id: admin.empresaId })
+        .eq('id', userId);
+    } else if (admin.isSuperAdmin && body.empresa_id) {
+      await admin.client
+        .from('usuarios_sistema')
+        .update({ empresa_id: body.empresa_id })
+        .eq('id', userId);
     }
 
     return NextResponse.json({ success: true, userId });

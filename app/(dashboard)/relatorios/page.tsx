@@ -44,6 +44,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/components/auth-provider';
 
 type ReportType =
   | 'faturamento'
@@ -67,6 +68,7 @@ const reportOptions: { value: ReportType; label: string; icon: typeof FileText; 
 const PIE_COLORS = ['#10b981', '#f59e0b', '#ef4444', '#6366f1', '#06b6d4', '#8b5cf6'];
 
 export default function RelatoriosPage() {
+  const { empresaId, isSuperAdmin } = useAuth();
   const [reportType, setReportType] = useState<ReportType>('faturamento');
   const [periodFrom, setPeriodFrom] = useState('');
   const [periodTo, setPeriodTo] = useState('');
@@ -77,13 +79,23 @@ export default function RelatoriosPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
 
   useEffect(() => {
+    if (empresaId === null && !isSuperAdmin) return;
     async function loadData() {
       setLoading(true);
+      const empFilter = !isSuperAdmin && empresaId ? empresaId : null;
       const [chargesRes, subsRes, plansRes, customersRes] = await Promise.all([
-        supabase.from('charges').select('*, customer:customers(*)').order('created_at', { ascending: false }),
-        supabase.from('subscriptions').select('*, customer:customers(*), plan:plans(*)').eq('status', 'ACTIVE'),
-        supabase.from('plans').select('*'),
-        supabase.from('customers').select('*'),
+        empFilter
+          ? supabase.from('charges').select('*, customer:customers(*)').eq('empresa_id', empFilter).order('created_at', { ascending: false })
+          : supabase.from('charges').select('*, customer:customers(*)').order('created_at', { ascending: false }),
+        empFilter
+          ? supabase.from('subscriptions').select('*, customer:customers(*), plan:plans(*)').eq('status', 'ACTIVE').eq('empresa_id', empFilter)
+          : supabase.from('subscriptions').select('*, customer:customers(*), plan:plans(*)').eq('status', 'ACTIVE'),
+        empFilter
+          ? supabase.from('plans').select('*').eq('empresa_id', empFilter)
+          : supabase.from('plans').select('*'),
+        empFilter
+          ? supabase.from('customers').select('*').eq('empresa_id', empFilter)
+          : supabase.from('customers').select('*'),
       ]);
 
       setCharges((chargesRes.data as (Charge & { customer?: Customer })[]) || []);
@@ -93,7 +105,7 @@ export default function RelatoriosPage() {
       setLoading(false);
     }
     loadData();
-  }, []);
+  }, [empresaId, isSuperAdmin]);
 
   const filteredCharges = useMemo(() => {
     return charges.filter((c) => {

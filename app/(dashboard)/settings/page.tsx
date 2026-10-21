@@ -42,11 +42,13 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react';
+import { useAuth } from '@/components/auth-provider';
 import { toast } from 'sonner';
 import { WhatsappSection } from '@/components/settings/whatsapp-section';
 import { AtendimentoSection } from '@/components/settings/atendimento-section';
 
 export default function SettingsPage() {
+  const { empresaId, isSuperAdmin } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
@@ -128,13 +130,38 @@ export default function SettingsPage() {
   const [bankTab, setBankTab] = useState<'EFI' | 'INTER' | 'ASAAS'>('EFI');
 
   useEffect(() => {
+    if (empresaId === null && !isSuperAdmin) return;
     loadSettings();
-  }, []);
+  }, [empresaId, isSuperAdmin]);
 
   async function loadSettings() {
+    // Try empresa_settings first (for non-super_admin)
+    if (!isSuperAdmin && empresaId) {
+      const { data: es } = await supabase
+        .from('empresa_settings')
+        .select('*')
+        .eq('empresa_id', empresaId)
+        .maybeSingle();
+
+      if (es) {
+        applySettingsData(es);
+        await loadBankConfigs('empresa_settings', empresaId);
+        return;
+      }
+    }
+
+    // Fall back to global settings (super_admin or no empresa_settings yet)
     const { data } = await supabase.from('settings').select('*').eq('id', 1).maybeSingle();
     if (data) {
-      setForm({
+      applySettingsData(data);
+      await loadBankConfigs('settings');
+      return;
+    }
+    setLoading(false);
+  }
+
+  function applySettingsData(data: any) {
+    setForm({
         billing_provider: data.billing_provider || 'EFI',
         email_template: data.email_template || '',
         reminder_rules: data.reminder_rules || 'D-1,D-0,D+1,D+5',
@@ -169,63 +196,40 @@ export default function SettingsPage() {
         secure: data.smtp_secure ?? false,
         fromEmail: data.smtp_from_email || '',
       });
-    }
-    try {
-      const { data: efiData } = await supabase
-        .from('settings')
-        .select('efi_client_id, efi_pix_key, efi_certificate_base64, efi_sandbox')
-        .eq('id', 1)
-        .maybeSingle();
-      if (efiData) {
-        setEfiClientIdSaved(!!efiData.efi_client_id);
-        setEfiClientSecretSaved(true);
-        setEfiConfig({
-          clientId: '',
-          clientSecret: '',
-          pixKey: efiData.efi_pix_key || '',
-          certificateBase64: efiData.efi_certificate_base64 || '',
-          sandbox: efiData.efi_sandbox ?? false,
-        });
-        if (efiData.efi_certificate_base64) setEfiCertUploaded(true);
-      }
-    } catch {
-      // ignore
-    }
-    try {
-      const { data: interData } = await supabase
-        .from('settings')
-        .select('inter_client_id, inter_cert_base64, inter_key_base64, inter_sandbox')
-        .eq('id', 1)
-        .maybeSingle();
-      if (interData) {
-        setInterClientIdSaved(!!interData.inter_client_id);
-        setInterClientSecretSaved(true);
-        setInterConfig({
-          clientId: '',
-          clientSecret: '',
-          certBase64: interData.inter_cert_base64 || '',
-          keyBase64: interData.inter_key_base64 || '',
-          sandbox: interData.inter_sandbox ?? false,
-        });
-        if (interData.inter_cert_base64) setInterCertUploaded(true);
-        if (interData.inter_key_base64) setInterKeyUploaded(true);
-      }
-    } catch {
-      // ignore
-    }
-    try {
-      const { data: asaasData } = await supabase
-        .from('settings')
-        .select('asaas_api_key, asaas_sandbox')
-        .eq('id', 1)
-        .maybeSingle();
-      if (asaasData) {
-        setAsaasApiKeySaved(!!asaasData.asaas_api_key);
-        setAsaasConfig({ apiKey: '', sandbox: asaasData.asaas_sandbox ?? true });
-      }
-    } catch {
-      // ignore
-    }
+  }
+
+  async function loadBankConfigs(settingsTable: 'settings' | 'empresa_settings', empresaIdVal?: string) {
+    const filterEq = settingsTable === 'empresa_settings' && empresaIdVal
+      ? supabase.from(settingsTable).select('*').eq('empresa_id', empresaIdVal).maybeSingle()
+      : supabase.from(settingsTable).select('*').eq('id', 1).maybeSingle();
+    const { data: bankData } = await filterEq;
+    if (!bankData) { setLoading(false); return; }
+
+    setEfiClientIdSaved(!!bankData.efi_client_id);
+    setEfiClientSecretSaved(true);
+    setEfiConfig({
+      clientId: '',
+      clientSecret: '',
+      pixKey: bankData.efi_pix_key || '',
+      certificateBase64: bankData.efi_certificate_base64 || '',
+      sandbox: bankData.efi_sandbox ?? false,
+    });
+    if (bankData.efi_certificate_base64) setEfiCertUploaded(true);
+
+    setInterClientIdSaved(!!bankData.inter_client_id);
+    setInterClientSecretSaved(true);
+    setInterConfig({
+      clientId: '',
+      clientSecret: '',
+      certBase64: bankData.inter_cert_base64 || '',
+      keyBase64: bankData.inter_key_base64 || '',
+      sandbox: bankData.inter_sandbox ?? false,
+    });
+    if (bankData.inter_cert_base64) setInterCertUploaded(true);
+    if (bankData.inter_key_base64) setInterKeyUploaded(true);
+
+    setAsaasApiKeySaved(!!bankData.asaas_api_key);
+    setAsaasConfig({ apiKey: '', sandbox: bankData.asaas_sandbox ?? true });
     setLoading(false);
   }
 
@@ -233,7 +237,7 @@ export default function SettingsPage() {
     const response = await fetch('/api/settings/provider', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider }),
+      body: JSON.stringify({ provider, empresaId: !isSuperAdmin ? empresaId : undefined }),
     });
     const result = await response.json();
     if (!response.ok || !result.success) {
@@ -247,9 +251,7 @@ export default function SettingsPage() {
 
   async function handleSaveAll() {
     setSaving(true);
-    const { error } = await supabase
-      .from('settings')
-      .update({
+    const settingsPayload = {
         billing_provider: form.billing_provider,
         email_template: form.email_template,
         reminder_rules: form.reminder_rules,
@@ -279,9 +281,22 @@ export default function SettingsPage() {
         smtp_secure: smtpConfig.secure,
         smtp_from_email: smtpConfig.fromEmail || null,
         asaas_sandbox: asaasConfig.sandbox,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', 1);
+      };
+
+    let error;
+    if (!isSuperAdmin && empresaId) {
+      // Upsert to empresa_settings
+      const { error: upsertError } = await supabase
+        .from('empresa_settings')
+        .upsert({ ...settingsPayload, empresa_id: empresaId, updated_at: new Date().toISOString() }, { onConflict: 'empresa_id' });
+      error = upsertError;
+    } else {
+      const { error: updateError } = await supabase
+        .from('settings')
+        .update({ ...settingsPayload, updated_at: new Date().toISOString() })
+        .eq('id', 1);
+      error = updateError;
+    }
 
     if (error) {
       toast.error('Erro ao salvar configurações');
@@ -303,6 +318,7 @@ export default function SettingsPage() {
       if (efiCertChanged && efiConfig.certificateBase64 && efiConfig.certificateBase64.length > 200) {
         efiPayload.certificateBase64 = efiConfig.certificateBase64;
       }
+      if (!isSuperAdmin && empresaId) efiPayload.empresaId = empresaId;
       await fetch('/api/efi/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -331,6 +347,7 @@ export default function SettingsPage() {
       if (interKeyChanged && interConfig.keyBase64 && interConfig.keyBase64.length > 100) {
         interPayload.keyBase64 = interConfig.keyBase64;
       }
+      if (!isSuperAdmin && empresaId) interPayload.empresaId = empresaId;
       await fetch('/api/inter/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

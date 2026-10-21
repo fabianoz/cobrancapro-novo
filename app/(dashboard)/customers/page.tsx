@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatPhone, formatCPF_CNPJ } from '@/lib/format';
 import type { Customer } from '@/lib/supabase';
+import { useAuth } from '@/components/auth-provider';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,6 +54,7 @@ const emptyForm = {
 };
 
 export default function CustomersPage() {
+  const { empresaId, isSuperAdmin } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -62,15 +64,22 @@ export default function CustomersPage() {
   const [consulting, setConsulting] = useState(false);
 
   useEffect(() => {
+    if (empresaId === null && !isSuperAdmin) return;
     loadCustomers();
-  }, []);
+  }, [empresaId, isSuperAdmin]);
 
   async function loadCustomers() {
     setLoading(true);
-    const { data } = await supabase
+    let query = supabase
       .from('customers')
       .select('*')
       .order('created_at', { ascending: false });
+
+    if (!isSuperAdmin && empresaId) {
+      query = query.eq('empresa_id', empresaId);
+    }
+
+    const { data } = await query;
     setCustomers((data as Customer[]) || []);
     setLoading(false);
   }

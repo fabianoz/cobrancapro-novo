@@ -12,7 +12,6 @@
 
 import { supabaseAdmin } from './supabase';
 import { getProvider } from './providers';
-import type { ChargeRequestData } from './providers/types';
 import { sendNotification } from './notifications';
 import { formatCurrency } from './format';
 import type { Subscription, Customer, Plan, Charge, SubscriptionAddon } from './supabase';
@@ -68,13 +67,13 @@ export async function generateCharges(): Promise<{ created: number; errors: numb
   const todayStr = today.toISOString().split('T')[0];
 
   // Get settings for provider selection
-  const { data: settings } = await supabaseAdmin
+  const { data: globalSettings } = await supabaseAdmin
     .from('settings')
     .select('*')
     .eq('id', 1)
     .maybeSingle();
 
-  const providerName = settings?.billing_provider || 'EFI';
+  const providerName = globalSettings?.billing_provider || 'EFI';
   const provider = getProvider(providerName);
 
   // Find active subscriptions due today
@@ -118,53 +117,38 @@ export async function generateCharges(): Promise<{ created: number; errors: numb
     const dueDateStr = dueDate.toISOString().split('T')[0];
 
     try {
-      // === Generate Pix ===
-      let pixTxid = '';
-      let pixCopyPaste = '';
-      let pixQrCode = '';
-      try {
-        const { criarPixImediato } = await import('./efi/pix');
-        const pix = await criarPixImediato({
-          valor: totalValue,
-          nomePagador: customer.name,
-          cpfCnpjPagador: customer.cpf_cnpj,
-          mensagem: `${plan.name} - venc. ${dueDateStr}`,
-        });
-        pixTxid = pix.txid;
-        pixCopyPaste = pix.pixCopiaECola || '';
-        pixQrCode = pix.qrCodeBase64 || '';
-      } catch (pixErr) {
-        console.warn('[Recurrence] Pix error:', pixErr instanceof Error ? pixErr.message : String(pixErr));
+      const externalReference = `CP${sub.id.slice(0, 8)}`.replace(/-/g, '');
+      const empresaIdForCharge = sub.empresa_id || (sub.customer as any)?.empresa_id || null;
+      let settingsForCharge = globalSettings;
+      if (empresaIdForCharge) {
+        const { data: es } = await supabaseAdmin
+          .from('empresa_settings')
+          .select('*')
+          .eq('empresa_id', empresaIdForCharge)
+          .maybeSingle();
+        if (es) settingsForCharge = es;
       }
+      const chargeProviderName = settingsForCharge?.billing_provider || providerName;
+      const chargeProvider = chargeProviderName !== providerName ? getProvider(chargeProviderName) : provider;
 
-      // === Generate Boleto ===
-      let boletoChargeId = '';
-      let boletoBarcode = '';
-      let boletoPdf = '';
-      let boletoPaymentUrl = '';
-      try {
-        const { criarBoleto } = await import('./efi/boleto');
-        const publicUrl = process.env.NEXT_PUBLIC_APP_URL || '';
-        const boleto = await criarBoleto({
-          customerName: customer.name,
-          customerCpfCnpj: customer.cpf_cnpj,
-          customerEmail: customer.email || '',
-          customerPhone: customer.whatsapp || '',
-          valor: totalValue,
-          vencimento: dueDateStr,
-          mensagem: plan.name,
-          externalReference: `CP${sub.id.slice(0, 8)}`.replace(/-/g, ''),
-          notificationUrl: `${publicUrl}/api/webhooks/efi`,
-        });
-        boletoChargeId = boleto.chargeId;
-        boletoBarcode = boleto.barcode || '';
-        boletoPdf = boleto.pdf || '';
-        boletoPaymentUrl = boleto.paymentUrl || '';
-      } catch (boletoErr) {
-        console.warn('[Recurrence] Boleto error:', boletoErr instanceof Error ? boletoErr.message : String(boletoErr));
-      }
+      const providerCharge = await chargeProvider.createCharge({
+        customerName: customer.name,
+        customerCpfCnpj: customer.cpf_cnpj,
+        customerEmail: customer.email || '',
+        customerPhone: customer.whatsapp || '',
+        value: totalValue,
+        dueDate: dueDateStr,
+        externalReference,
+      });
 
-      const invoiceId = pixTxid || boletoChargeId || `local-${Date.now()}`;
+      const pixTxid = '';
+      const pixCopyPaste = providerCharge.pixCopyPaste || '';
+      const pixQrCode = providerCharge.pixQrCode || '';
+      const boletoChargeId = providerCharge.externalId || '';
+      const boletoBarcode = providerCharge.barcode || '';
+      const boletoPdf = providerCharge.billetPdfUrl || '';
+      const boletoPaymentUrl = providerCharge.paymentUrl || '';
+      const invoiceId = boletoChargeId || `local-${Date.now()}`;
       const publicUrl = process.env.NEXT_PUBLIC_APP_URL || '';
       const linkFatura = `${publicUrl}/fatura/${invoiceId}`;
 
@@ -177,8 +161,9 @@ export async function generateCharges(): Promise<{ created: number; errors: numb
           value: totalValue,
           due_date: dueDateStr,
           status: 'PENDING',
-          provider: providerName,
+          provider: chargeProviderName,
           external_id: invoiceId,
+          empresa_id: empresaIdForCharge,
           txid: pixTxid || null,
           pix_copy_paste: pixCopyPaste || null,
           pix_qr_code: pixQrCode || null,

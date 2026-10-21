@@ -15,6 +15,7 @@ export async function POST(request: Request) {
     const supabaseAdmin = getSupabaseAdmin();
   try {
     const body = await request.json().catch(() => ({}));
+    const empresaId = typeof body.empresaId === 'string' && body.empresaId ? body.empresaId : null;
 
     const updates: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
@@ -50,10 +51,19 @@ export async function POST(request: Request) {
       updates.efi_sandbox = !!body.sandbox;
     }
 
-    const { error } = await supabaseAdmin
-      .from('settings')
-      .update(updates)
-      .eq('id', 1);
+    let error: { message: string } | null = null;
+    if (empresaId) {
+      const { error: upsertError } = await supabaseAdmin
+        .from('empresa_settings')
+        .upsert({ ...updates, empresa_id: empresaId }, { onConflict: 'empresa_id' });
+      error = upsertError;
+    } else {
+      const { error: updateError } = await supabaseAdmin
+        .from('settings')
+        .update(updates)
+        .eq('id', 1);
+      error = updateError;
+    }
 
     if (error) {
       return NextResponse.json(

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency, formatDate, monthNames, statusLabels, statusColors } from '@/lib/format';
 import type { Charge, Customer } from '@/lib/supabase';
+import { useAuth } from '@/components/auth-provider';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -49,6 +50,7 @@ type ChartData = {
 };
 
 export default function DashboardPage() {
+  const { empresaId, isSuperAdmin } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({
     totalToReceive: 0,
     overdue: 0,
@@ -65,17 +67,23 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function loadData() {
+      if (empresaId === null && !isSuperAdmin) return;
       const now = new Date();
       const year = now.getFullYear();
       const month = now.getMonth();
       const firstDay = new Date(year, month, 1).toISOString();
       const lastDay = new Date(year, month + 1, 0).toISOString();
 
-      // Load all charges
-      const { data: charges } = await supabase
+      let chargesQuery = supabase
         .from('charges')
         .select('*, customer:customers(*)')
         .order('created_at', { ascending: false });
+
+      if (!isSuperAdmin && empresaId) {
+        chargesQuery = chargesQuery.eq('empresa_id', empresaId);
+      }
+
+      const { data: charges } = await chargesQuery;
 
       if (!charges) {
         setLoading(false);
@@ -94,10 +102,16 @@ export default function DashboardPage() {
       const paidTotal = paidThisMonthCharges.reduce((sum, c) => sum + Number(c.value), 0);
 
       // MRR: sum of active subscription plan values
-      const { data: subs } = await supabase
+      let subsQuery = supabase
         .from('subscriptions')
         .select('*, plan:plans(*)')
         .eq('status', 'ACTIVE');
+
+      if (!isSuperAdmin && empresaId) {
+        subsQuery = subsQuery.eq('empresa_id', empresaId);
+      }
+
+      const { data: subs } = await subsQuery;
 
       const mrr = (subs || []).reduce((sum, s) => {
         const plan = s.plan as any;
@@ -152,7 +166,7 @@ export default function DashboardPage() {
     }
 
     loadData();
-  }, []);
+  }, [empresaId, isSuperAdmin]);
 
   function handleResendWhatsApp(charge: Charge & { customer?: Customer }) {
     const phone = charge.customer?.whatsapp;

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ShoppingCart, Loader2, Receipt, CalendarDays, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/components/auth-provider';
 
  type Customer = {
   id: string;
@@ -16,6 +17,7 @@ import { supabase } from '@/lib/supabase';
 };
 
 export default function EmitirPage() {
+  const { empresaId, isSuperAdmin } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerId, setCustomerId] = useState('');
   const [value, setValue] = useState('');
@@ -29,13 +31,16 @@ export default function EmitirPage() {
   const [result, setResult] = useState<{ count: number; message: string } | null>(null);
 
   useEffect(() => {
+    if (empresaId === null && !isSuperAdmin) return;
     async function loadCustomers() {
-      const { data } = await supabase.from('customers').select('id, name').order('name');
+      let query = supabase.from('customers').select('id, name').order('name');
+      if (!isSuperAdmin && empresaId) query = query.eq('empresa_id', empresaId);
+      const { data } = await query;
       setCustomers((data as Customer[]) || []);
       setLoading(false);
     }
     loadCustomers();
-  }, []);
+  }, [empresaId, isSuperAdmin]);
 
   async function handleCreateSale() {
     const numericValue = Number(value);

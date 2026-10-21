@@ -38,10 +38,12 @@ import {
   CalendarClock,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/components/auth-provider';
 
 type SubWithRelations = Subscription & { customer?: Customer; plan?: Plan; addons?: SubscriptionAddon[] };
 
 export default function SubscriptionsPage() {
+  const { empresaId, isSuperAdmin } = useAuth();
   const [subscriptions, setSubscriptions] = useState<SubWithRelations[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -59,15 +61,23 @@ export default function SubscriptionsPage() {
   const [subSaving, setSubSaving] = useState(false);
 
   useEffect(() => {
+    if (empresaId === null && !isSuperAdmin) return;
     loadAll();
-  }, []);
+  }, [empresaId, isSuperAdmin]);
 
   async function loadAll() {
     setLoading(true);
+    const empFilter = !isSuperAdmin && empresaId ? empresaId : null;
     const [subsRes, custRes, plansRes] = await Promise.all([
-      supabase.from('subscriptions').select('*, customer:customers(*), plan:plans(*), addons:subscription_addons(*)').order('created_at', { ascending: false }),
-      supabase.from('customers').select('*').order('name'),
-      supabase.from('plans').select('*').order('name'),
+      empFilter
+        ? supabase.from('subscriptions').select('*, customer:customers(*), plan:plans(*), addons:subscription_addons(*)').eq('empresa_id', empFilter).order('created_at', { ascending: false })
+        : supabase.from('subscriptions').select('*, customer:customers(*), plan:plans(*), addons:subscription_addons(*)').order('created_at', { ascending: false }),
+      empFilter
+        ? supabase.from('customers').select('*').eq('empresa_id', empFilter).order('name')
+        : supabase.from('customers').select('*').order('name'),
+      empFilter
+        ? supabase.from('plans').select('*').eq('empresa_id', empFilter).order('name')
+        : supabase.from('plans').select('*').order('name'),
     ]);
     setSubscriptions((subsRes.data as SubWithRelations[]) || []);
     setCustomers((custRes.data as Customer[]) || []);

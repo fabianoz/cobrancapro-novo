@@ -29,6 +29,21 @@ export const supabaseAdmin = new Proxy({} as SupabaseClient, {
   },
 });
 
+export type Empresa = {
+  id: string;
+  nome: string;
+  razao_social: string | null;
+  cnpj: string | null;
+  email: string | null;
+  whatsapp: string | null;
+  plano: string;
+  status: string;
+  logo_url: string | null;
+  subdomain: string | null;
+  max_users: number;
+  created_at: string;
+};
+
 export type Customer = {
   id: string;
   name: string;

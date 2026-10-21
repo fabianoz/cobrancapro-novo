@@ -23,15 +23,27 @@ async function isAdmin(request: NextRequest) {
   if (!data.user) return null;
   const { data: profile } = await client
     .from('usuarios_sistema')
-    .select('id, cargo, ativo')
+    .select('id, cargo, ativo, empresa_id')
     .eq('id', data.user.id)
     .maybeSingle();
-  return profile?.ativo && profile.cargo === 'admin' ? { user: data.user, client } : null;
+  if (!profile?.ativo) return null;
+  if (profile.cargo !== 'admin' && profile.cargo !== 'super_admin') return null;
+  return { user: data.user, client, empresaId: profile.empresa_id, isSuperAdmin: profile.cargo === 'super_admin' };
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   const admin = await isAdmin(request);
   if (!admin) return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
+  if (!admin.isSuperAdmin) {
+    const { data: target } = await admin.client
+      .from('usuarios_sistema')
+      .select('empresa_id')
+      .eq('id', params.id)
+      .maybeSingle();
+    if (target?.empresa_id !== admin.empresaId) {
+      return NextResponse.json({ error: 'Você só pode editar usuários da sua empresa.' }, { status: 403 });
+    }
+  }
   try {
     const body = await request.json();
     const nome = String(body.nome || '').trim();
@@ -59,6 +71,16 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
   const admin = await isAdmin(request);
   if (!admin) return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 });
   if (admin.user.id === params.id) return NextResponse.json({ error: 'Não é possível excluir o próprio usuário.' }, { status: 400 });
+  if (!admin.isSuperAdmin) {
+    const { data: target } = await admin.client
+      .from('usuarios_sistema')
+      .select('empresa_id')
+      .eq('id', params.id)
+      .maybeSingle();
+    if (target?.empresa_id !== admin.empresaId) {
+      return NextResponse.json({ error: 'Você só pode excluir usuários da sua empresa.' }, { status: 403 });
+    }
+  }
 
   const { error } = await admin.client.rpc('delete_system_user', {
     p_admin_token: admin.user.id,

@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/select';
 import { Plus, Pencil, Trash2, CreditCard, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/components/auth-provider';
 
 const emptyForm = {
   name: '',
@@ -39,6 +40,7 @@ const emptyForm = {
 };
 
 export default function PlansPage() {
+  const { empresaId, isSuperAdmin } = useAuth();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -46,12 +48,15 @@ export default function PlansPage() {
   const [form, setForm] = useState(emptyForm);
 
   useEffect(() => {
+    if (empresaId === null && !isSuperAdmin) return;
     loadPlans();
-  }, []);
+  }, [empresaId, isSuperAdmin]);
 
   async function loadPlans() {
     setLoading(true);
-    const { data } = await supabase.from('plans').select('*').order('created_at', { ascending: false });
+    let query = supabase.from('plans').select('*').order('created_at', { ascending: false });
+    if (!isSuperAdmin && empresaId) query = query.eq('empresa_id', empresaId);
+    const { data } = await query;
     setPlans((data as Plan[]) || []);
     setLoading(false);
   }

@@ -10,6 +10,7 @@ export async function POST(request: Request) {
     const supabaseAdmin = getSupabaseAdmin();
   try {
     const body = await request.json();
+    const empresaId = typeof body.empresaId === 'string' && body.empresaId ? body.empresaId : null;
 
     const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
@@ -20,10 +21,19 @@ export async function POST(request: Request) {
     if (body.sandbox !== undefined) updateData.inter_sandbox = body.sandbox;
     if (body.billingProvider !== undefined) updateData.billing_provider = body.billingProvider;
 
-    const { error } = await supabaseAdmin
-      .from('settings')
-      .update(updateData)
-      .eq('id', 1);
+    let error: { message: string } | null = null;
+    if (empresaId) {
+      const { error: upsertError } = await supabaseAdmin
+        .from('empresa_settings')
+        .upsert({ ...updateData, empresa_id: empresaId }, { onConflict: 'empresa_id' });
+      error = upsertError;
+    } else {
+      const { error: updateError } = await supabaseAdmin
+        .from('settings')
+        .update(updateData)
+        .eq('id', 1);
+      error = updateError;
+    }
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

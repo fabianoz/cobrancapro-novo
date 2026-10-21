@@ -97,6 +97,7 @@ export async function GET(req: NextRequest) {
     const supabase = getSupabaseAdmin()
     const { searchParams } = new URL(req.url)
     const atendimento_id = searchParams.get('atendimento_id')
+    const empresaId = searchParams.get('empresa_id')
 
     // Listar atendimentos (sidebar)
     if (searchParams.get('list') === 'atendimentos') {
@@ -105,6 +106,10 @@ export async function GET(req: NextRequest) {
       const atendenteId = searchParams.get('atendente_id')
 
       let query = supabase.from('atendimentos').select('*').order('updated_at', { ascending: false })
+
+      if (empresaId) {
+        query = query.eq('empresa_id', empresaId)
+      }
 
       if (filtro === 'fila') {
         query = query.eq('status', 'aberto').is('atendente_id', null)

@@ -68,7 +68,7 @@ function phoneLabel(value: string) {
 }
 
 export default function AtendimentoPage() {
-  const { user } = useAuth();
+  const { user, empresaId, isSuperAdmin } = useAuth();
   const [filtro, setFiltro] = useState<Filtro>('fila');
   const [busca, setBusca] = useState('');
   const [atendimentos, setAtendimentos] = useState<Atendimento[]>([]);
@@ -91,13 +91,14 @@ export default function AtendimentoPage() {
   const loadAtendimentos = useCallback(async () => {
     const params = new URLSearchParams({ filtro, busca });
     if (filtro === 'meus' && user?.id) params.set('atendente_id', user.id);
+    if (!isSuperAdmin && empresaId) params.set('empresa_id', empresaId);
     const res = await fetch(`/api/atendimento/mensagens?${params}&list=atendimentos`);
     if (!res.ok) return;
     const data = await res.json() as Atendimento[];
     setAtendimentos(data);
     setSelecionado((cur) => data.find((a) => a.id === cur?.id) || data[0] || null);
     setLoading(false);
-  }, [busca, filtro, user?.id]);
+  }, [busca, filtro, user?.id, empresaId, isSuperAdmin]);
 
   const loadMensagens = useCallback(async (atendimentoId: string) => {
     const res = await fetch(`/api/atendimento/mensagens?atendimento_id=${atendimentoId}`);

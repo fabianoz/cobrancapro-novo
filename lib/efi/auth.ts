@@ -302,7 +302,11 @@ export async function efiBoletoRequest<T = unknown>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const response = await efiBoletoFetch(path, options);
+  let response = await efiBoletoFetch(path, options);
+  if (response.status === 401) {
+    cachedBoletoToken = null;
+    response = await efiBoletoFetch(path, options);
+  }
 
   const rawText = await response.text();
 
@@ -403,7 +407,10 @@ export async function authenticateBoleto(): Promise<string> {
       cachedBoletoToken = cachedToken;
       return pixToken;
     } catch {
-      throw new Error(`EFI Boleto auth failed: ${response.status} ${errText.slice(0, 200)}`);
+      throw new Error(
+        `EFI Boleto ${response.status}: credenciais ou ambiente inválidos para a API de cobrança. ` +
+        `Confira se Client ID, Client Secret, certificado .p12 e modo ${cfg.sandbox ? 'Homologação' : 'Produção'} pertencem ao mesmo aplicativo Efí.`
+      );
     }
   }
 

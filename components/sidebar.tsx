@@ -18,6 +18,7 @@ import {
   BarChart3,
   UserCog,
   LogOut,
+  Building2,
 } from 'lucide-react';
 import { useState } from 'react';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -36,9 +37,14 @@ const navItems = [
   { href: '/settings/users', label: 'Usuários', icon: UserCog, module: 'configuracoes_usuarios' },
 ];
 
+const superAdminItems = [
+  { href: '/empresas', label: 'Empresas (Revendas)', icon: Building2, module: '' },
+];
+
 export default function Sidebar() {
   const pathname = usePathname();
   const { user, hasPermission, signOut } = useAuth();
+  const isSuperAdmin = user?.cargo === 'super_admin';
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
@@ -118,6 +124,33 @@ export default function Sidebar() {
               </Link>
             );
           })}
+          {isSuperAdmin && (
+            <>
+              <div className="pt-3 pb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Administração
+              </div>
+              {superAdminItems.map((item) => {
+                const isActive = pathname.startsWith(item.href);
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileOpen(false)}
+                    className={cn(
+                      'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                      isActive
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                    )}
+                  >
+                    <Icon className="w-[18px] h-[18px] shrink-0" />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </>
+          )}
         </nav>
 
         {/* Footer */}

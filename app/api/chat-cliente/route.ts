@@ -16,8 +16,10 @@ export async function GET(request: Request) {
   const search = searchParams.get('search')?.trim() || '';
   const team = searchParams.get('team') || '';
   const userId = searchParams.get('user_id') || '';
+  const empresaId = searchParams.get('empresa_id') || '';
 
   let query = supabaseAdmin.from('chat_conversas').select('*').order('updated_at', { ascending: false });
+  if (empresaId) query = query.eq('empresa_id', empresaId);
   if (view === 'queue') query = query.in('status', ['aberto', 'em_atendimento']).is('responsavel_id', null);
   if (view === 'mine' && userId) query = query.eq('responsavel_id', userId).neq('status', 'encerrado');
   if (view === 'team' && team) query = query.eq('equipe', team).neq('status', 'encerrado');

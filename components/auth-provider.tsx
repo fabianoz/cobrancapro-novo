@@ -11,6 +11,8 @@ type AuthContextValue = {
   loading: boolean;
   signOut: () => Promise<void>;
   hasPermission: (modulo: string, action?: keyof Omit<UserPermission, 'modulo'>) => boolean;
+  isSuperAdmin: boolean;
+  empresaId: string | null;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -80,6 +82,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
       hasPermission: (modulo, action = 'pode_ver') =>
         can(permissions.find((item) => item.modulo === modulo), action),
+      isSuperAdmin: user?.cargo === 'super_admin',
+      empresaId: user?.empresa_id ?? null,
     }),
     [user, permissions, loading, router],
   );

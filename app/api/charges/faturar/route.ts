@@ -35,9 +35,8 @@ export async function POST(request: Request) {
       .eq('id', 1)
       .maybeSingle();
 
-    const useInter = settings?.billing_provider === 'INTER';
-    const useAsaas = settings?.billing_provider === 'ASAAS';
-    const providerName = useInter ? 'INTER' : useAsaas ? 'ASAAS' : 'EFI';
+    let empresaIdForCharge: string | null = null;
+    let empresaSettings: Record<string, unknown> | null = null;
 
     let customer: Customer | null = null;
     let value: number = 0;
@@ -60,6 +59,7 @@ export async function POST(request: Request) {
       const plan = sub.plan;
       value = overrideValue ? Number(overrideValue) : Number(plan?.value || 0);
       planName = plan?.name || 'Cobrança';
+      empresaIdForCharge = sub.empresa_id || (customer as any)?.empresa_id || null;
 
       if (overrideDueDate) {
         dueDate = overrideDueDate;
@@ -90,7 +90,24 @@ export async function POST(request: Request) {
       value = Number(overrideValue || 0);
       dueDate = overrideDueDate || new Date().toISOString().split('T')[0];
       planName = body.description || 'Venda avulsa';
+      empresaIdForCharge = (cust as any)?.empresa_id || null;
     }
+
+    // Load empresa-specific settings if available
+    if (empresaIdForCharge) {
+      const { data: es } = await supabaseAdmin
+        .from('empresa_settings')
+        .select('*')
+        .eq('empresa_id', empresaIdForCharge)
+        .maybeSingle();
+      if (es) empresaSettings = es as Record<string, unknown>;
+    }
+
+    const settingsData = empresaSettings || settings;
+
+    const useInter = settingsData?.billing_provider === 'INTER';
+    const useAsaas = settingsData?.billing_provider === 'ASAAS';
+    const providerName = useInter ? 'INTER' : useAsaas ? 'ASAAS' : 'EFI';
 
     if (!customer || value <= 0) {
       return NextResponse.json({ error: 'Cliente ou valor inválido' }, { status: 400 });
@@ -117,7 +134,7 @@ export async function POST(request: Request) {
     };
 
     try {
-      if (useAsaas) throw new Error('PIX será gerado junto com o boleto no Asaas');
+      if (useAsaas || useInter) throw new Error('PIX será gerado junto com a cobrança do banco selecionado');
       const pix = await criarPixImediato({
         valor: value,
         nomePagador: customer.name,
@@ -181,7 +198,7 @@ export async function POST(request: Request) {
           status: interCharge.situacao || 'pending',
         };
         if (interCharge.pixCopiaECola) {
-          pixData.pixCopiaECola = pixData.pixCopiaECola || interCharge.pixCopiaECola;
+          pixData.pixCopiaECola = interCharge.pixCopiaECola;
         }
         console.log('[Faturar] Boleto Inter gerado — codigoSolicitacao:', interCharge.codigoSolicitacao);
       } else {
@@ -245,6 +262,7 @@ export async function POST(request: Request) {
         charge_type: subscriptionId ? 'RECURRING' : 'SALE',
         description: planName,
         erro_boleto: boletoError || null,
+        empresa_id: empresaIdForCharge,
       })
       .select('*, customer:customers(*)')
       .single();
@@ -262,9 +280,9 @@ export async function POST(request: Request) {
         ];
         const dueDateObj = new Date(dueDate);
         const mesReferencia = `${fullMonthNames[dueDateObj.getMonth()]}/${dueDateObj.getFullYear()}`;
-        const nomeEmpresa = settings?.issuer_trade_name || settings?.issuer_name || 'Nossa Empresa';
+        const nomeEmpresa = settingsData?.issuer_trade_name || settingsData?.issuer_name || 'Nossa Empresa';
 
-        const template = settings?.template_faturar ||
+        const template = settingsData?.template_faturar ||
           `Ola, {NOME_CLIENTE},\n\nSua Fatura já se encontra Disponível\n{NOME_EMPRESA}\n\nSua Mensalidade referente ao mês de: {MES_REFERENCIA} vence no dia: {DATA_VENCIMENTO}\nNo Valor: R$ {VALOR}\n\nCaso Deseje Realizar o Pagamento segue os dados abaixo:\n\nClique no Link da fatura abaixo para Efetuar o Pagamento:\n(PIX E BOLETO)\nClique no Link abaixo:\n{link_fatura_publica}\n\nPara acessar seu Boleto Clique Aqui:\n{boleto_url}\n\nLinha digitavel do boleto:\n{linha_digitavel}\n\nPIX Copia e Cola:\n{pix_copia_e_cola}\n\nQualquer dúvida, problema ou sugestão por favor entre em contato conosco para que possamos lhe ajudar.`;
 
         const renderedMessage = template

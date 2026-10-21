@@ -39,6 +39,7 @@ import {
   Trash2,
   DollarSign,
 } from 'lucide-react';
+import { useAuth } from '@/components/auth-provider';
 import { toast } from 'sonner';
 
 type ChargeWithCustomer = Charge & { customer?: Customer };
@@ -55,6 +56,12 @@ const fullMonthNames = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ];
+
+function providerLabel(provider: Charge['provider']): string {
+  if (provider === 'ASAAS') return 'Asaas';
+  if (provider === 'INTER') return 'Banco Inter';
+  return 'Efí Bank';
+}
 
 function buildDefaultMessage(charge: ChargeWithCustomer, issuer: IssuerInfo | null): string {
   const name = charge.customer?.name?.split(' ')[0] || 'cliente';
@@ -78,6 +85,7 @@ function buildDefaultMessage(charge: ChargeWithCustomer, issuer: IssuerInfo | nu
 }
 
 export default function ChargesPage() {
+  const { empresaId, isSuperAdmin } = useAuth();
   const [charges, setCharges] = useState<ChargeWithCustomer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -106,13 +114,19 @@ export default function ChargesPage() {
   const [testingBank, setTestingBank] = useState(false);
 
   const loadCharges = useCallback(async () => {
-    const { data } = await supabase
+    let query = supabase
       .from('charges')
       .select('*, customer:customers(*)')
       .order('due_date', { ascending: false });
+
+    if (!isSuperAdmin && empresaId) {
+      query = query.eq('empresa_id', empresaId);
+    }
+
+    const { data } = await query;
     setCharges((data as ChargeWithCustomer[]) || []);
     setLoading(false);
-  }, []);
+  }, [empresaId, isSuperAdmin]);
 
   useEffect(() => {
     loadCharges();
@@ -132,11 +146,23 @@ export default function ChargesPage() {
   }, [loadCharges]);
 
   async function loadIssuer() {
-    const { data } = await supabase
+    let query = supabase
       .from('settings')
-      .select('issuer_name, issuer_trade_name, issuer_phone, issuer_email, billing_provider')
-      .eq('id', 1)
-      .maybeSingle();
+      .select('issuer_name, issuer_trade_name, issuer_phone, issuer_email, billing_provider');
+
+    if (!isSuperAdmin && empresaId) {
+      const { data: es } = await supabase
+        .from('empresa_settings')
+        .select('issuer_name, issuer_trade_name, issuer_phone, issuer_email, billing_provider')
+        .eq('empresa_id', empresaId)
+        .maybeSingle();
+      if (es) {
+        setIssuer(es as IssuerInfo);
+        return;
+      }
+    }
+
+    const { data } = await query.eq('id', 1).maybeSingle();
     if (data) {
       setIssuer(data as IssuerInfo);
     }
@@ -541,16 +567,17 @@ export default function ChargesPage() {
                 <th className="text-left font-medium text-muted-foreground px-6 py-3">Cliente</th>
                 <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">Vencimento</th>
                 <th className="text-right font-medium text-muted-foreground px-4 py-3">Valor</th>
+                <th className="text-center font-medium text-muted-foreground px-4 py-3">Banco emissor</th>
                 <th className="text-center font-medium text-muted-foreground px-4 py-3">Status</th>
                 <th className="text-right font-medium text-muted-foreground px-6 py-3">Ações</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">Carregando...</td></tr>
+                <tr><td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">Carregando...</td></tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
                     <Wallet className="w-10 h-10 mx-auto mb-2 opacity-40" />
                     Nenhuma cobrança encontrada
                   </td>
@@ -582,6 +609,11 @@ export default function ChargesPage() {
                       {formatCurrency(Number(charge.value))}
                     </td>
                     <td className="px-4 py-3 text-center">
+                      <Badge variant="outline" className="border-sky-200 bg-sky-50 px-3 py-1 text-sm font-semibold text-sky-800">
+                        {providerLabel(charge.provider)}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-center">
                       <div className="flex flex-col items-center gap-1">
                         <Badge variant="outline" className={`font-medium border ${statusColors[charge.status] || ''}`}>
                           {statusLabels[charge.status] || charge.status}
@@ -601,46 +633,56 @@ export default function ChargesPage() {
                         {charge.pix_copy_paste && (
                           <button
                             onClick={() => copyToClipboard(charge.pix_copy_paste!, 'Pix')}
-                            className="p-1.5 rounded-lg hover:bg-teal-50 text-teal-600 transition-colors"
+                            className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium hover:bg-teal-50 text-teal-600 transition-colors"
                             title="Copiar Pix"
+                            aria-label="Copiar Pix"
                           >
                             {copiedField === 'Pix' ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                            <span className="hidden xl:inline">PIX</span>
                           </button>
                         )}
                         {charge.pix_qr_code && (
                           <button
                             onClick={() => setViewCharge(charge)}
-                            className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-600 transition-colors"
+                            className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium hover:bg-blue-50 text-blue-600 transition-colors"
                             title="Ver QR Code Pix"
+                            aria-label="Ver QR Code Pix"
                           >
                             <QrCode className="w-4 h-4" />
+                            <span className="hidden xl:inline">QR Pix</span>
                           </button>
                         )}
                         {(charge.barcode_boleto || charge.barcode) && (
                           <button
                             onClick={() => copyToClipboard(charge.barcode_boleto || charge.barcode || '', 'Linha Boleto')}
-                            className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors"
+                            className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium hover:bg-slate-100 text-slate-600 transition-colors"
                             title="Copiar Linha do Boleto"
+                            aria-label="Copiar Linha do Boleto"
                           >
                             {copiedField === 'Linha Boleto' ? <CheckCircle2 className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+                            <span className="hidden xl:inline">Boleto</span>
                           </button>
                         )}
                         {charge.payment_url && (
                           <button
                             onClick={() => copyToClipboard(charge.payment_url!, 'Link')}
-                            className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-600 transition-colors"
+                            className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium hover:bg-indigo-50 text-indigo-600 transition-colors"
                             title="Copiar Link da Cobrança"
+                            aria-label="Copiar Link da Cobrança"
                           >
                             {copiedField === 'Link' ? <CheckCircle2 className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
+                            <span className="hidden xl:inline">Link</span>
                           </button>
                         )}
                         {charge.link_fatura_publica && (
                           <button
                             onClick={() => copyToClipboard(charge.link_fatura_publica!, 'Link Fatura')}
-                            className="p-1.5 rounded-lg hover:bg-purple-50 text-purple-600 transition-colors"
+                            className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium hover:bg-purple-50 text-purple-600 transition-colors"
                             title="Copiar Link da Fatura Pública"
+                            aria-label="Copiar Link da Fatura Pública"
                           >
                             {copiedField === 'Link Fatura' ? <CheckCircle2 className="w-4 h-4" /> : <ExternalLink className="w-4 h-4" />}
+                            <span className="hidden xl:inline">Fatura</span>
                           </button>
                         )}
                         {(charge.boleto_url || charge.billet_pdf_url) && (
@@ -648,44 +690,54 @@ export default function ChargesPage() {
                             href={charge.boleto_url || charge.billet_pdf_url || '#'}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-600 transition-colors"
+                            className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium hover:bg-blue-50 text-blue-600 transition-colors"
                             title="Baixar Boleto PDF"
+                            aria-label="Baixar Boleto PDF"
                           >
                             <FileText className="w-4 h-4" />
+                            <span className="hidden xl:inline">PDF</span>
                           </a>
                         )}
                         {!charge.boleto_charge_id && (
                           <button
                             onClick={() => handleGerarBoleto(charge)}
                             disabled={gerandoBoleto === charge.id}
-                            className="p-1.5 rounded-lg hover:bg-amber-50 text-amber-600 transition-colors disabled:opacity-50"
+                            className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium hover:bg-amber-50 text-amber-600 transition-colors disabled:opacity-50"
                             title="Gerar Boleto Agora"
+                            aria-label="Gerar Boleto Agora"
                           >
                             {gerandoBoleto === charge.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                            <span className="hidden xl:inline">Gerar boleto</span>
                           </button>
                         )}
                         <button
                           onClick={() => sendWhatsAppDirect(charge)}
-                          className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-600 transition-colors"
+                          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium hover:bg-emerald-50 text-emerald-600 transition-colors"
                           title="Enviar no WhatsApp"
+                          aria-label="Enviar no WhatsApp"
                         >
                           <MessageCircle className="w-4 h-4" />
+                          <span className="hidden xl:inline">WhatsApp</span>
                         </button>
                         {charge.status !== 'PAID' && (
                           <button
                             onClick={() => openReceiveModal(charge)}
-                            className="p-1.5 rounded-lg hover:bg-green-50 text-green-600 transition-colors"
+                            className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium hover:bg-green-50 text-green-600 transition-colors"
                             title="Receber com Desconto"
+                            aria-label="Receber com Desconto"
                           >
                             <DollarSign className="w-4 h-4" />
+                            <span className="hidden xl:inline">Receber</span>
                           </button>
                         )}
                         <button
                           onClick={() => setDeleteId(charge.id)}
-                          className="p-1.5 rounded-lg hover:bg-red-50 text-red-600 transition-colors"
+                          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium hover:bg-red-50 text-red-600 transition-colors"
                           title="Excluir Cobrança"
+                          aria-label="Excluir Cobrança"
                         >
                           <Trash2 className="w-4 h-4" />
+                          <span className="hidden xl:inline">Excluir</span>
                         </button>
                       </div>
                     </td>
@@ -732,7 +784,9 @@ export default function ChargesPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Provedor</span>
-                <span>{viewCharge.provider}</span>
+                <Badge variant="outline" className="border-sky-200 bg-sky-50 font-semibold text-sky-800">
+                  {providerLabel(viewCharge.provider)}
+                </Badge>
               </div>
               {viewCharge.payment_method && (
                 <div className="flex justify-between">

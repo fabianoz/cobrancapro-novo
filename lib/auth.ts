@@ -9,7 +9,7 @@ export const SYSTEM_MODULES = [
 ] as const;
 
 export type SystemModule = (typeof SYSTEM_MODULES)[number];
-export type UserRole = 'admin' | 'financeiro' | 'suporte' | 'vendas' | 'estagiario';
+export type UserRole = 'super_admin' | 'admin' | 'financeiro' | 'suporte' | 'vendas' | 'estagiario';
 
 export type SystemUser = {
   id: string;
@@ -19,6 +19,7 @@ export type SystemUser = {
   cargo: UserRole;
   ativo: boolean;
   ultimo_acesso: string | null;
+  empresa_id: string | null;
 };
 
 export type UserPermission = {
